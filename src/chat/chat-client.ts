@@ -1,9 +1,8 @@
 /**
  * Main chat client for managing conversations and streaming
+ * @deprecated Use useChat hook from React context instead
  */
 
-import { StorageProvider } from '../platform/storage';
-import { WebSocketProvider } from '../platform/websocket';
 import {
   createStreamTransport,
   CreateStreamTransportOptions,
@@ -25,11 +24,13 @@ import { ask, prepareBody, AskOptions } from './utils';
 export interface ChatClientOptions {
   /** Base URL for API requests */
   baseURL: string;
-  /** Storage provider for auth tokens */
-  storage: StorageProvider;
-  /** Optional WebSocket provider for WebSocket transport */
-  webSocketProvider?: WebSocketProvider;
-  /** Whether to prefer WebSocket over SSE (default: true if webSocketProvider is provided) */
+  /** Auth token for requests */
+  token?: string;
+  /** WebSocket URL (default: same as baseURL) */
+  webSocketUrl?: string;
+  /** WebSocket path (default: /socket.io) */
+  webSocketPath?: string;
+  /** Whether to prefer WebSocket over SSE (default: true) */
   preferWebSocket?: boolean;
   /** Default namespace ID */
   namespaceId?: string;
@@ -66,6 +67,7 @@ export interface AskRequest {
 
 /**
  * Chat client for managing conversations and streaming chat
+ * @deprecated Use useChat hook from React context instead
  */
 export class ChatClient {
   private options: ChatClientOptions;
@@ -103,9 +105,10 @@ export class ChatClient {
       url,
       body,
       callback,
-      storage: this.options.storage,
-      webSocketProvider: this.options.webSocketProvider,
-      useWebSocket: this.options.preferWebSocket ?? !!this.options.webSocketProvider,
+      token: this.options.token,
+      useWebSocket: this.options.preferWebSocket ?? true,
+      webSocketUrl: this.options.webSocketUrl ?? this.options.baseURL,
+      webSocketPath: this.options.webSocketPath,
       onError: this.options.onError,
     };
 

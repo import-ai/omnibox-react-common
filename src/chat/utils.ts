@@ -271,3 +271,16 @@ export function createTransportFactory(
     return baseCreateStreamTransport('/namespaces/' + (namespaceId || 'default') + '/chat', body, callback);
   };
 }
+
+/**
+ * Find the first message whose parent_id does not exist in the messages array
+ * This is typically the root message of a conversation
+ * @param messages - Array of messages
+ * @returns The root message or undefined
+ */
+export function findFirstMessageWithMissingParent(
+  messages: MessageDetail[]
+): MessageDetail | undefined {
+  const idSet = new Set(messages.map((msg) => msg.id));
+  return messages.find((msg) => !idSet.has(msg.parent_id));
+}

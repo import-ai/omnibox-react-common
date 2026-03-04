@@ -3,16 +3,12 @@
  * Supports both SSE and WebSocket transports
  */
 
-import { StorageProvider } from '../platform/storage';
-import { WebSocketProvider } from '../platform/websocket';
 import { StreamTransport } from './types';
 import { createSSETransport as createSSE } from './sse';
-import { createChatWebSocketTransport as createWebSocket } from './websocket';
 
 // Re-export types
 export type { StreamTransport } from './types';
 export type { SSETransportOptions } from './sse';
-export type { WebSocketTransportOptions } from './websocket';
 
 /**
  * Options for creating a stream transport
@@ -24,24 +20,25 @@ export interface CreateStreamTransportOptions {
   body: Record<string, any>;
   /** Callback for each message received */
   callback: (data: string) => void | Promise<void>;
-  /** Storage provider for retrieving auth token */
-  storage: StorageProvider;
-  /** WebSocket provider (required for WebSocket transport) */
-  webSocketProvider?: WebSocketProvider;
-  /** Whether to use WebSocket instead of SSE (default: true if webSocketProvider is provided) */
+  /** Auth token */
+  token?: string;
+  /** Whether to use WebSocket instead of SSE (default: true) */
   useWebSocket?: boolean;
+  /** WebSocket URL (required for WebSocket) */
+  webSocketUrl?: string;
+  /** WebSocket path (default: /socket.io) */
+  webSocketPath?: string;
   /** Additional headers for SSE requests */
   headers?: Record<string, string>;
   /** Error handler */
   onError?: (error: string) => void;
   /** Complete handler */
   onComplete?: () => void;
-  /** Storage key for auth token (default: 'token') */
-  tokenKey?: string;
 }
 
 /**
  * Create a stream transport (WebSocket or SSE)
+ * Uses socket.io directly for WebSocket transport
  * @param options - Transport configuration options
  * @returns StreamTransport instance
  */
@@ -52,34 +49,124 @@ export function createStreamTransport(
     url,
     body,
     callback,
-    storage,
-    webSocketProvider,
-    useWebSocket = !!webSocketProvider,
+    token,
+    useWebSocket = true,
+    webSocketUrl,
+    webSocketPath = '/socket.io',
     headers = {},
     onError,
     onComplete,
-    tokenKey = 'token',
   } = options;
 
-  if (useWebSocket && webSocketProvider) {
-    return createWebSocket(webSocketProvider, url, body, callback, {
+  if (useWebSocket) {
+    return createSocketIOTransport({
+      url,
+      body,
+      callback,
+      token,
+      webSocketUrl,
+      webSocketPath,
       onError,
       onComplete,
     });
   }
-
-  // Get token from storage
-  const token = storage.getItem(tokenKey);
-  const resolvedToken = token instanceof Promise ? undefined : token ?? undefined;
 
   return createSSE({
     url,
     body,
     onMessage: callback,
     onError,
-    token: resolvedToken,
+    token,
     headers,
   });
+}
+
+interface CreateSocketIOTransportOptions {
+  url: string;
+  body: Record<string, any>;
+  callback: (data: string) => void | Promise<void>;
+  token?: string;
+  webSocketUrl?: string;
+  webSocketPath?: string;
+  onError?: (error: string) => void;
+  onComplete?: () => void;
+}
+
+function createSocketIOTransport(
+  options: CreateSocketIOTransportOptions
+): StreamTransport {
+  const { url, body, callback, token, webSocketUrl, webSocketPath, onError, onComplete } =
+    options;
+
+  let socket: ReturnType<typeof import('socket.io-client')['io']> | null = null;
+  let isAborted = false;
+
+  // Determine event name based on URL and body
+  let event = url.includes('/ask') ? 'ask' : 'write';
+  if (body.share_id) {
+    event = `share_${event}`;
+  }
+
+  return {
+    start: async () => {
+      const { io } = await import('socket.io-client');
+
+      const wsUrl = webSocketUrl || url;
+      const authToken = token || (typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null);
+
+      socket = io(wsUrl, {
+        path: webSocketPath,
+        transports: ['websocket', 'polling'],
+        auth: authToken ? { token: `Bearer ${authToken}` } : undefined,
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+      });
+
+      const messageHandler = async (data: unknown) => {
+        if (!isAborted) {
+          await callback(String(data));
+        }
+      };
+
+      const errorHandler = (data: unknown) => {
+        if (onError && !isAborted && typeof data === 'object' && data !== null && 'error' in data) {
+          onError(String((data as { error: string }).error));
+        }
+      };
+
+      const completeHandler = () => {
+        cleanup();
+        if (onComplete && !isAborted) {
+          onComplete();
+        }
+      };
+
+      const cleanup = () => {
+        socket?.off('message', messageHandler);
+        socket?.off('error', errorHandler);
+        socket?.off('complete', completeHandler);
+      };
+
+      socket.on('message', messageHandler);
+      socket.on('error', errorHandler);
+      socket.on('complete', completeHandler);
+
+      // Wait for connection before emitting
+      if (socket.connected) {
+        socket.emit(event, body);
+      } else {
+        socket.once('connect', () => {
+          socket?.emit(event, body);
+        });
+      }
+    },
+    destroy: () => {
+      isAborted = true;
+      socket?.disconnect();
+      socket = null;
+    },
+  };
 }
 
 /**
@@ -105,9 +192,5 @@ export function createSSETransport(options: {
   });
 }
 
-// Re-export transport functions
+// Re-export SSE transport
 export { createSSETransport as createSSETransportImpl } from './sse';
-export {
-  createWebSocketTransport,
-  createChatWebSocketTransport,
-} from './websocket';

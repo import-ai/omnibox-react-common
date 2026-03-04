@@ -1,37 +1,55 @@
 /**
- * @omnibox/ts-common - Omnibox TypeScript SDK
+ * @omnibox/react-common - Omnibox React Common SDK
  *
- * This SDK provides common utilities for chat and streaming functionality
- * across web, iOS, and Android (React Native) platforms.
+ * This SDK provides React hooks and context for chat and streaming functionality.
  *
  * @example
- * ```typescript
- * import { ChatClient, MemoryStorage, FetchHttpProvider } from '@omnibox/ts-common';
+ * ```tsx
+ * import { ChatProvider, useChat } from '@omnibox/react-common';
  *
- * const client = new ChatClient({
- *   baseURL: 'https://api.example.com',
- *   storage: new MemoryStorage(),
- * });
+ * function App() {
+ *   return (
+ *     <ChatProvider config={{ baseURL: 'https://api.example.com' }}>
+ *       <ChatComponent />
+ *     </ChatProvider>
+ *   );
+ * }
  *
- * const { transport, cleanup } = client.ask({
- *   conversationId: 'conv-123',
- *   query: 'Hello!',
- *   onConversationUpdate: (conv) => console.log(conv),
- * });
+ * function ChatComponent() {
+ *   const { ask, isLoading } = useChat({
+ *     onConversationUpdate: (conv) => console.log(conv),
+ *   });
  *
- * await transport.start();
- * cleanup();
+ *   return (
+ *     <button onClick={() => ask({ query: 'Hello!' })}>
+ *       {isLoading ? 'Loading...' : 'Send'}
+ *     </button>
+ *   );
+ * }
  * ```
  */
 
 // Types
 export * from './types';
 
-// Platform abstractions
-export * from './platform';
+// React Context
+export * from './context/ChatContext';
+
+// React Hooks
+export * from './hooks';
 
 // Transport layer
-export * from './transport';
+export * from './transport/types';
+export { createStreamTransport, createSSETransport } from './transport/stream-transport';
 
-// Chat functionality
-export * from './chat';
+// Message operator (for advanced use cases)
+export { createMessageOperator } from './chat/message-operator';
+export type { MessageOperator, CreateMessageOperatorOptions } from './chat/message-operator';
+
+// Utilities
+export {
+  prepareBody,
+  extractToolsAndContext,
+  extractOriginalMessageSettings,
+  findFirstMessageWithMissingParent,
+} from './chat/utils';

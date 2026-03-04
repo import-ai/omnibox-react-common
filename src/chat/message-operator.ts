@@ -2,6 +2,7 @@
  * Message state management for chat conversations
  */
 
+import type { Dispatch, SetStateAction } from 'react';
 import {
   ChatBOSResponse,
   ChatDeltaResponse,
@@ -87,6 +88,10 @@ function getChildren(
   return [];
 }
 
+export type SetConversationFn =
+  | ((updater: (prev: ConversationDetail) => ConversationDetail) => void)
+  | Dispatch<SetStateAction<ConversationDetail>>;
+
 export interface CreateMessageOperatorOptions {
   /**
    * The conversation state
@@ -95,7 +100,7 @@ export interface CreateMessageOperatorOptions {
   /**
    * Callback to update the conversation state
    */
-  setConversation: (updater: (prev: ConversationDetail) => ConversationDetail) => void;
+  setConversation: SetConversationFn;
 }
 
 /**
