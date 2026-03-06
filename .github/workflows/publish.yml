@@ -39,12 +39,16 @@ jobs:
           mkdir -p /tmp/dist-artifacts
           cp -r dist /tmp/dist-artifacts/
           cp package.json /tmp/dist-artifacts/
+          cp README.md /tmp/dist-artifacts/ || true
+          cp LICENSE /tmp/dist-artifacts/ || true
           git fetch origin dist || true
           git checkout -b dist origin/dist 2>/dev/null || git checkout -b dist
           git rm -rf .
-          cp -r /tmp/dist-artifacts/dist/* .
+          cp -r /tmp/dist-artifacts/dist .
           cp /tmp/dist-artifacts/package.json .
-          rm -rf node_modules dist
+          cp /tmp/dist-artifacts/README.md . 2>/dev/null || true
+          cp /tmp/dist-artifacts/LICENSE . 2>/dev/null || true
+          rm -rf node_modules
           git add -f -A
           git commit --allow-empty -m "Build ${{ github.sha }}"
           git push origin dist --force
