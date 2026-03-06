@@ -39,11 +39,12 @@ jobs:
           mkdir -p /tmp/dist-artifacts
           cp -r dist /tmp/dist-artifacts/
           cp package.json /tmp/dist-artifacts/
-          git checkout --orphan dist
+          git fetch origin dist
+          git checkout dist || git checkout -b dist
           git rm -rf .
           cp -r /tmp/dist-artifacts/dist/* .
           cp /tmp/dist-artifacts/package.json .
           rm -rf node_modules dist
           git add -A
           git commit -m "Build ${{ github.sha }}"
-          git push origin dist --force
+          git push origin dist
