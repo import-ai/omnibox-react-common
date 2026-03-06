@@ -38,6 +38,8 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git checkout --orphan dist
           git rm -rf .
-          git checkout main -- dist package.json
+          cp -r dist/* .
+          cp package.json .
+          git add -A
           git commit -m "Build ${{ github.sha }}"
           git push origin dist --force
