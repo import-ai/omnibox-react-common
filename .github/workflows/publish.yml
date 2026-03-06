@@ -43,6 +43,7 @@ jobs:
           git rm -rf .
           cp -r /tmp/dist-artifacts/dist/* .
           cp /tmp/dist-artifacts/package.json .
+          rm -rf node_modules
           git add -A
           git commit -m "Build ${{ github.sha }}"
           git push origin dist --force
